@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Lists</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+
+<body class="bg-gray-100 flex justify-center">
+
+    <div class="bg-white shadow-lg rounded-2xl p-6 w-96">
+        <h1 class="text-2xl font-bold text-center mb-4">📋 Todo List</h1>
+
+        <!-- Input and Button -->
+        <div class="flex mb-4">
+            <input id="taskInput" type="text" 
+            class="border rounded-l-md px-3 py-2 w-full focus:outline-none" placeholder="Enter new task">
+            <button id="addBtn" class="bg-blue-600 text-white px-4 rounded-r-md hover:cursor-pointer hover:bg-blue-800">
+            Add</button>
+        </div>
+
+        <!-- Task List -->
+        <ul id="taskList" class="space-y-3"></ul>
+  </div>
+
+
+</body>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+
+</html>
