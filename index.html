@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Todo-App</title>
@@ -12,13 +13,13 @@
 
 <body class="bg-gray-900 text-white flex flex-col items-center">
 
-    <section class="flex flex-col">
+    <section id="loginSec" class="flex flex-col">
 
         <div class="py-8">
             <p class="text-3xl font-normal bg-gradient-to-r from-[#717171] via-[#9ca0a9] to-[#717171] bg-clip-text text-transparent">Supabase Todo App</p>
             <p class="font-normal mt-2 text-[#bebebe]">Simple, Fast, and Secure Todo App with Supabase.</p>
         </div>
-        <div id="loginSec" class="border border-[#353535] bg-gray-800 p-7 rounded-lg">
+        <div class="border border-[#353535] bg-gray-800 p-7 rounded-lg">
 
             <div class="">
                 <p class="text-[22px] text-xl font-normal
@@ -53,11 +54,20 @@
 
     <section id="todoSec" class="hidden">
         
-        <div class="py-8">
-            <p class="text-3xl font-normal bg-gradient-to-r from-[#717171] via-[#9ca0a9] to-[#717171] bg-clip-text text-transparent">
-            Supabase Todo App</p>
-            <p class="font-normal mt-2 text-[#bebebe]">
-            Simple, Fast, and Secure Todo App with Supabase.</p>
+        <div class="py-8 flex flex-row justify-between">
+
+            <div class="flex flex-col">
+                <p class="text-3xl font-normal bg-gradient-to-r from-[#717171] via-[#9ca0a9] to-[#717171] bg-clip-text text-transparent">
+                Supabase Todo App</p>
+                <p class="font-normal mt-2 text-[#bebebe]">
+                Simple, Fast, and Secure Todo App with Supabase.</p>
+            </div>
+            <div class="flex flex-col justify-center">
+                <button id="logOutBtn" class="border border-slate-600 rounded-xl px-4 py-2 mr-1 text-sm font-medium hover:cursor-pointer hover:text-gray-300
+                bg-gradient-to-r from-[#6a6a6a] via-[#afb2ba] to-[#6a6a6a] bg-clip-text text-transparent">
+                Log Out</button>
+            </div>
+            
         </div>
         
         <div class="bg-gray-800 p-7 w-190 shadow-lg rounded-2xl space-y-2">
@@ -65,7 +75,7 @@
             <div class="flex flex-row justify-between items-center">
                 <p class="text-lg font-medium bg-gradient-to-r from-[#7d7d7d] via-[#a2a5ac] to-[#7d7d7d] bg-clip-text text-transparent">
                 Your Todos</p>
-                <input type="text" id="searchInp" placeholder="Search todos..."
+                <input type="text" id="searchTodosInp" placeholder="Search todos..."
                 class="w-70 border border-slate-600 bg-gray-900 rounded-xl px-3 py-2">
             </div>
             <!-- Input and Button -->
@@ -75,18 +85,19 @@
                 placeholder="Todo title">
             </div>
             <div class="flex mb-4">
-                <textarea rows="3" id="" placeholder="Write about todo..."
+                <textarea rows="3" id="taskDescrpInp" placeholder="Write about todo..."
                 class="border-slate-600 bg-gray-900 w-full border rounded-xl px-3 py-2 focus:outline-none"></textarea>
             </div>
             <div class="flex flex-row justify-end m-0">
-                <button id="addBtn" class="flex items-end justify-end rounded-xl bg-gradient-to-b from-sky-600 to-sky-700 px-4 py-2 text-sm font-medium text-slate-200 hover:cursor-pointer transition duration-500 ease-in-out hover:scale-92">
+                <button id="addTodosBtn"
+                class="flex items-end justify-end rounded-xl bg-gradient-to-b from-sky-600 to-sky-700 px-4 py-2 text-sm font-medium text-slate-200 hover:cursor-pointer transition duration-500 ease-in-out hover:scale-92">
                 Add Todo</button>
             </div>
+
             <!-- Task List -->
             <ul id="taskList" class="space-y-3 mt-8"></ul>
 
         </div>
-
 
     </section>
 
