@@ -5,17 +5,20 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ----------<<< Globals >>>----------
 let allTodos = []
+let currentUser = null
 
 // ----------<<< Search Section >>>----------
 
 let searchTodosInp = document.getElementById("searchTodosInp")
 
 searchTodosInp.addEventListener("input" , () => {
+
     let searchTxt = searchTodosInp.value.toLowerCase()
     let filtered = allTodos.filter(todo => {
         return todo.task.toLowerCase().includes(searchTxt)
     })
     renderTasks(filtered)
+    
 })
 
 // ----------<<< SignUp and LogIn Section >>>----------
@@ -42,6 +45,7 @@ signUpBtn.addEventListener("click" , async () => {
     }
     else {
         console.log("Signed Up:", data)
+        currentUser = data.user ?.id || data.session?.user.id
     }
 
     emailInp.value = ""
@@ -60,6 +64,7 @@ logInBtn.addEventListener("click" , async () => {
     }
     else {
         console.log("Logged In:", data)
+        currentUser = data.user?.id || data.session?.user.id
         loginSec.classList.add("hidden")
         todoSec.classList.remove("hidden")
         loadTasks()
@@ -84,15 +89,17 @@ window.addEventListener("DOMContentLoaded", async () => {
     loginSec.classList.add("hidden")
     todoSec.classList.add("hidden")
 
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (user) {
+    const { data } = await supabase.auth.getSession()
+    
+    if (data.session) {
+        currentUser = data.session.user.id
         // user already login
         loginSec.classList.add("hidden")
         todoSec.classList.remove("hidden")
         loadTasks()
     }
     else {
+        currentUser = null
         // user not login
         loginSec.classList.remove("hidden")
         todoSec.classList.add("hidden")
@@ -153,18 +160,29 @@ let renderTasks = (todos) => {
 }
 
 let loadTasks = async () => {
-    let {data , error} = await supabase.from("Todo-App").select("id , task , description")
+
+    let {data , error} = await supabase
+    .from("Todo_App")
+    .select("id , task , description")
+    .eq("user_id", currentUser)
+    
     if (data && !error) {
         allTodos = data
         renderTasks(allTodos)
     }
-}
 
-console.log(allTodos);
+}
 
 // ----------<<< Add Todos Section >>>----------
 
 addTodosBtn.addEventListener("click", async () => {
+
+    const { data } = await supabase.auth.getUser();
+
+    if (!data.user) {
+        alert("Please login first!")
+        return
+    }
 
     let task = taskTitleInp.value
     let description = taskDescrpInp.value
@@ -172,13 +190,23 @@ addTodosBtn.addEventListener("click", async () => {
     if (!task) {
         return
     }
-    else {
-        await supabase.from("Todo-App").insert([{ task: task, description: description }])
-        taskTitleInp.value = ""
-        taskDescrpInp.value = ""
-        loadTasks()
+
+    let { error } = await supabase.from("Todo_App").insert([{
+        task: task,
+        description: description,
+        user_id: data.user.id
+    }])
+
+    if (error) {
+        alert(error.message)
+        return
     }
 
-})
+    taskTitleInp.value = ""
+    taskDescrpInp.value = ""
+    loadTasks()
+
+});
+
 // Page load show tasks
 loadTasks()
