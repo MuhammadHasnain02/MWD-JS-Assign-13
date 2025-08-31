@@ -3,7 +3,8 @@ const SUPABASE_URL = "https://pwjvisderoyqbbxifzrw.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3anZpc2Rlcm95cWJieGlmenJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwMzM3MzksImV4cCI6MjA3MTYwOTczOX0.eesSF4krIK1HkNNwjoIsy6bOk2MS73CKCaUV__T4ewA";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ----------<<< Globals >>>----------
+// ----------<<< Global Elements >>>----------
+
 let allTodos = []
 let currentUser = null
 
@@ -21,7 +22,7 @@ searchTodosInp.addEventListener("input" , () => {
     
 })
 
-// ----------<<< SignUp and LogIn Section >>>----------
+// ----------<<< Auth: SignUp, LogIn and LogOut Section >>>----------
 
 // Email and Password Input
 let emailInp = document.getElementById("emailInp")
@@ -42,12 +43,10 @@ signUpBtn.addEventListener("click" , async () => {
     })
     if (error) {
         alert(error.message)
-    }
-    else {
-        console.log("Signed Up:", data)
-        currentUser = data.user ?.id || data.session?.user.id
+        return
     }
 
+    alert("Please check your email to verify.");
     emailInp.value = ""
     passInp.value = ""
 
@@ -61,24 +60,30 @@ logInBtn.addEventListener("click" , async () => {
     })
     if (error) {
         alert(error.message)
+        return
     }
-    else {
-        console.log("Logged In:", data)
-        currentUser = data.user?.id || data.session?.user.id
-        loginSec.classList.add("hidden")
-        todoSec.classList.remove("hidden")
-        loadTasks()
-    }
-
+    
+    currentUser = data.user.id
+    // currentUser = data.session.user.id
+    loginSec.classList.add("hidden")
+    todoSec.classList.remove("hidden")
+    
     emailInp.value = ""
     passInp.value = ""
+
+    await loadTasks()
+    alert("Logged In!");
 
 })
 
 logOutBtn.addEventListener("click" , async () => {
+
     await supabase.auth.signOut()
+    currentUser = null
     loginSec.classList.remove("hidden")
     todoSec.classList.add("hidden")
+    taskList.innerHTML = ""
+
 })
 
 // ----------<<< Check User Session on Page Load >>>----------
@@ -90,17 +95,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     todoSec.classList.add("hidden")
 
     const { data } = await supabase.auth.getSession()
+    console.log(data);
     
     if (data.session) {
         currentUser = data.session.user.id
-        // user already login
         loginSec.classList.add("hidden")
         todoSec.classList.remove("hidden")
-        loadTasks()
     }
     else {
-        currentUser = null
-        // user not login
         loginSec.classList.remove("hidden")
         todoSec.classList.add("hidden")
     }
@@ -177,24 +179,12 @@ let loadTasks = async () => {
 
 addTodosBtn.addEventListener("click", async () => {
 
-    const { data } = await supabase.auth.getUser();
-
-    if (!data.user) {
-        alert("Please login first!")
-        return
-    }
-
-    let task = taskTitleInp.value
-    let description = taskDescrpInp.value
-
-    if (!task) {
-        return
-    }
+    if (!currentUser) return alert("Login required!")
 
     let { error } = await supabase.from("Todo_App").insert([{
-        task: task,
-        description: description,
-        user_id: data.user.id
+        task: taskTitleInp.value,
+        description: taskDescrpInp.value,
+        user_id: currentUser
     }])
 
     if (error) {
@@ -204,9 +194,9 @@ addTodosBtn.addEventListener("click", async () => {
 
     taskTitleInp.value = ""
     taskDescrpInp.value = ""
-    loadTasks()
+    await loadTasks()
 
 });
 
-// Page load show tasks
-loadTasks()
+// // Page load show tasks
+// loadTasks()
