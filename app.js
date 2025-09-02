@@ -35,9 +35,26 @@ let logOutBtn = document.getElementById("logOutBtn")
 let loginSec = document.getElementById("loginSec")
 let todoSec = document.getElementById("todoSec")
 
+// // ----------<<< Auth State Change Listener >>>----------
+// supabase.auth.onAuthStateChange(async (event, session) => {
+
+//     if (session) {
+//         currentUser = session.user.id;
+//         loginSec.classList.add("hidden");
+//         todoSec.classList.remove("hidden");
+//         loadTasks();
+//     }
+//     else {
+//         currentUser = null;
+//         loginSec.classList.remove("hidden");
+//         todoSec.classList.add("hidden");
+//     }
+    
+// });
+
 signUpBtn.addEventListener("click" , async () => {
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
         email: emailInp.value,
         password: passInp.value,
     })
@@ -63,7 +80,7 @@ logInBtn.addEventListener("click" , async () => {
         return
     }
     
-    currentUser = data.user.id
+    currentUser = data.user.id || data.session.user.id
     // currentUser = data.session.user.id
     loginSec.classList.add("hidden")
     todoSec.classList.remove("hidden")
@@ -99,6 +116,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     
     if (data.session) {
         currentUser = data.session.user.id
+        await loadTasks()
         loginSec.classList.add("hidden")
         todoSec.classList.remove("hidden")
     }
@@ -199,4 +217,170 @@ addTodosBtn.addEventListener("click", async () => {
 });
 
 // // Page load show tasks
-// loadTasks()
+// loadTasks().
+
+
+// ----------<<< IMAGE UPLOAD FUNCTIONALITY >>>----------
+
+// Image upload Global Elements
+let selectedImages = [];
+let uploadedImageUrls = [];
+
+// Elements
+let imgupldArea = document.getElementById("imgupldArea")
+let imgInp = document.getElementById("imgInp")
+let imgPreviewCont = document.getElementById("imgPreviewCont")
+
+// Drag and drop functionality
+imgupldArea.addEventListener('dragover', (e) => {
+
+    e.preventDefault();
+    imgupldArea.classList.add('border-emerald-500', 'bg-slate-800/30');
+
+});
+
+imgupldArea.addEventListener('dragleave', (e) => {
+
+    e.preventDefault();
+    imgupldArea.classList.remove('border-emerald-500', 'bg-slate-800/30');
+
+});
+
+imgupldArea.addEventListener('drop', (e) => {
+
+    e.preventDefault();
+    imgupldArea.classList.remove('border-emerald-500', 'bg-slate-800/30');
+    const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+    handlImgSelection(files);
+
+});
+
+// File input [change]
+imgInp.addEventListener('change', (e) => {
+
+    const files = Array.from(e.target.files);
+    handlImgSelection(files);
+
+});
+
+// Handle image selection
+function handlImgSelection(files) {
+
+    const validFiles = files.filter(file => {
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please select only image files');
+            return false;
+        }
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            alert(`File ${file.name} is too large. Maximum size is 10MB`);
+            return false;
+        }
+        return true;
+
+    });
+
+    selectedImages = [...selectedImages, ...validFiles];
+    displImgPreviews();
+
+}
+
+// Display image previews
+function displImgPreviews() {
+
+    imgPreviewCont.innerHTML = '';
+    
+    if (selectedImages.length === 0) {
+        imgPreviewCont.classList.add('hidden');
+        return;
+    }
+
+    imgPreviewCont.classList.remove('hidden');
+
+    selectedImages.forEach((file, index) => {
+        
+        const previewDiv = document.createElement('div');
+        previewDiv.className = 'relative group';
+        
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.className = 'w-50 h-28 object-cover rounded-lg border border-slate-700 hover:cursor-pointer';
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        `;
+        removeBtn.className = 'absolute -top-2 right-5 p-1 text-white rounded-full bg-red-600 hover:cursor-pointer group-hover:opacity-100';
+        removeBtn.onclick = () => removeImage(index);
+        
+        const fileName = document.createElement('p');
+        fileName.textContent = file.name.length > 15 ? file.name.substring(0, 15) + '...' : file.name;
+        fileName.className = 'text-xs text-slate-400 mt-1 truncate';
+        
+        previewDiv.appendChild(img);
+        previewDiv.appendChild(removeBtn);
+        previewDiv.appendChild(fileName);
+        imgPreviewCont.appendChild(previewDiv);
+        
+    });
+    
+}
+
+// Remove image from selection
+function removeImage(index) {
+
+    selectedImages.splice(index, 1);
+    displImgPreviews();
+
+}
+
+// Upload images to Supabase Storage
+async function upldImgToStorage() { 
+    
+    if (selectedImages.length === 0) return []; 
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    let uploadDetails = selectedImages.map( async (file, index) => {
+
+        // Unique file name
+        let fileExtn = file.name.split(".").pop();
+        let fileName = `${user.id}/${Date.now()}-${index}.${fileExtn}`
+
+        // Upload file
+        const { error } = await supabase.storage
+        .from("Img-File-Collection")
+        .upload(fileName, file)
+
+        if (error) {
+            alert("Error Upload failed: " , error.message)
+            return null;
+        }
+
+        // Get public URL
+        let { data: { publicUrl } } = supabase.storage
+        .from("Img-File-Collection")
+        .getPublicUrl(fileName)
+
+        return publicUrl;
+
+    })
+
+    let results = await Promise.all(uploadDetails)
+    return results.filter(url => url !== null);
+
+}
+
+// Clear image selection
+function clearImgSelection() {
+    selectedImages = [];
+    uploadedImageUrls = [];
+    imgInp.value = '';
+    displImgPreviews();
+}
+
+
+
