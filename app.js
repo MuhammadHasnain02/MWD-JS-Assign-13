@@ -7,6 +7,7 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let allTodos = []
 let currentUser = null
+let editState = { id: null }
 
 // ----------<<< Search Section >>>----------
 
@@ -138,8 +139,15 @@ let taskList = document.getElementById("taskList")
 let editBtn  = document.getElementById("editBtn")
 let deletBtn = document.getElementById("deletBtn")
 
+// CRUD [Create, Read, Update, Delete] OPERATIONS
+
 let renderTasks = (todos) => {
     taskList.innerHTML = ""
+
+    if (todos.length === 0) {
+        taskList.innerHTML = `<p class="text-slate-400">No todos yet</p>`
+        return
+    }
 
     todos.forEach(item => {
         let li = document.createElement("li")
@@ -162,13 +170,38 @@ let renderTasks = (todos) => {
         let btnDiv = document.createElement("div")
         btnDiv.className = "flex flex-row space-x-4"
 
+        // ---- Edit Btn ----
         let editBtn = document.createElement("button")
         editBtn.className = "text-green-500 hover:cursor-pointer hover:text-green-600"
         editBtn.textContent = "Edit"
+        editBtn.onclick = () => {
 
+            taskTitleInp.value = item.task
+            taskDescrpInp.value = item.description
+            addTodosBtn.textContent = "Save Changes"
+            editState.id = item.id
+
+        }
+
+        // ---- Delete Btn ----
         let deletBtn = document.createElement("button")
         deletBtn.className = "text-red-600 hover:cursor-pointer hover:text-red-700"
         deletBtn.textContent = "Delete"
+        deletBtn.onclick = async () => {
+
+            if (!confirm("Delete this task?")) return
+            
+            let { error } = await supabase.from("Todo_App")
+                .delete()
+                .eq("id", item.id)
+                .eq("user_id", currentUser)
+            if (error) {
+                alert(error.message)
+                return
+            }
+            await loadTasks()
+
+        }
 
         btnDiv.appendChild(editBtn)
         btnDiv.appendChild(deletBtn)
@@ -176,38 +209,67 @@ let renderTasks = (todos) => {
         li.appendChild(txtDiv)
         li.appendChild(btnDiv)
         taskList.appendChild(li)
+
     })
+
 }
 
-let loadTasks = async () => {
+async function loadTasks() {
 
     let {data , error} = await supabase
     .from("Todo_App")
     .select("id , task , description")
     .eq("user_id", currentUser)
     
-    if (data && !error) {
-        allTodos = data
-        renderTasks(allTodos)
+    if (error) {
+        console.log("loadTasks => " , error)
+        return
     }
+
+    allTodos = data
+    renderTasks(allTodos)
 
 }
 
-// ----------<<< Add Todos Section >>>----------
+// ----------<<< Add / Update Todos Section >>>----------
 
 addTodosBtn.addEventListener("click", async () => {
 
     if (!currentUser) return alert("Login required!")
 
-    let { error } = await supabase.from("Todo_App").insert([{
-        task: taskTitleInp.value,
-        description: taskDescrpInp.value,
-        user_id: currentUser
-    }])
+    let title = taskTitleInp.value.trim()
+    let descrp = taskDescrpInp.value.trim()
+    if (!title) return
 
-    if (error) {
-        alert(error.message)
-        return
+    if (editState.id) {
+
+        // ----- Update existing todo -----
+        let { error } = await supabase.from("Todo_App")
+        .update({ task: title, description: descrp })
+        .eq("id", editState.id)
+        .eq("user_id", currentUser)
+
+        if (error) {
+            alert(error.message)
+            return
+        }
+        addTodosBtn.textContent = "Add Todo"
+        editState.id = null
+
+    }
+    else {
+
+        // ----- Insert new todo -----
+        let { error } = await supabase.from("Todo_App").insert([{
+            task: title,
+            description: descrp,
+            user_id: currentUser
+        }])
+        if (error) {
+            alert(error.message)
+            return
+        }
+        
     }
 
     taskTitleInp.value = ""
@@ -224,7 +286,7 @@ addTodosBtn.addEventListener("click", async () => {
 
 // Image upload Global Elements
 let selectedImages = [];
-let uploadedImageUrls = [];
+let uploadedImgUrls = [];
 
 // Elements
 let imgupldArea = document.getElementById("imgupldArea")
@@ -299,14 +361,14 @@ function displImgPreviews() {
 
     selectedImages.forEach((file, index) => {
         
-        const previewDiv = document.createElement('div');
+        let previewDiv = document.createElement('div');
         previewDiv.className = 'relative group';
         
-        const img = document.createElement('img');
+        let img = document.createElement('img');
         img.src = URL.createObjectURL(file);
         img.className = 'w-50 h-28 object-cover rounded-lg border border-slate-700 hover:cursor-pointer';
         
-        const removeBtn = document.createElement('button');
+        let removeBtn = document.createElement('button');
         removeBtn.innerHTML = `
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -315,7 +377,7 @@ function displImgPreviews() {
         removeBtn.className = 'absolute -top-2 right-5 p-1 text-white rounded-full bg-red-600 hover:cursor-pointer group-hover:opacity-100';
         removeBtn.onclick = () => removeImage(index);
         
-        const fileName = document.createElement('p');
+        let fileName = document.createElement('p');
         fileName.textContent = file.name.length > 15 ? file.name.substring(0, 15) + '...' : file.name;
         fileName.className = 'text-xs text-slate-400 mt-1 truncate';
         
@@ -337,7 +399,7 @@ function removeImage(index) {
 }
 
 // Upload images to Supabase Storage
-async function upldImgToStorage() { 
+async function upldImgToStorage() {
     
     if (selectedImages.length === 0) return []; 
 
@@ -377,10 +439,60 @@ async function upldImgToStorage() {
 // Clear image selection
 function clearImgSelection() {
     selectedImages = [];
-    uploadedImageUrls = [];
+    uploadedImgUrls = [];
     imgInp.value = '';
     displImgPreviews();
 }
 
+// Display existing images during editing
+function displExistingImg(imgUrls) {
+    
+    imgPreviewCont.innerHTML = '';
+    imgPreviewCont.classList.remove('hidden');
+
+    imgUrls.forEach((imageUrl, index) => {
+
+        let previewDiv = document.createElement('div');
+        previewDiv.className = 'relative group';
+
+        let img = document.createElement('img');
+        img.src = imageUrl;
+        img.className = 'w-full h-24 object-cover rounded-lg border border-slate-700';
+        
+        let removeBtn = document.createElement('button');
+        removeBtn.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        `;
+        removeBtn.className = 'absolute -top-2 -right-2 p-1 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors opacity-0 group-hover:opacity-100';
+        removeBtn.onclick = () => removeExistingImage(index);
+        
+        let fileName = document.createElement('p');
+        fileName.textContent = `Existing Image ${index + 1}`;
+        fileName.className = 'text-xs text-slate-400 mt-1 truncate';
+
+        previewDiv.appendChild(img);
+        previewDiv.appendChild(removeBtn);
+        previewDiv.appendChild(fileName);
+        imgPreviewCont.appendChild(previewDiv);
+        
+    })
+
+}
+
+// Remove existing ima  ge from edit
+function removeExistingImage(index) {
+
+    uploadedImgUrls.splice(index, 1);
+
+    if (uploadedImgUrls.length === 0) {
+        imagePreviewContainer.classList.add('hidden');
+    }
+    else {
+        displExistingImg(uploadedImgUrls);
+    }
+
+}
 
 
