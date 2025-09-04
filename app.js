@@ -146,20 +146,25 @@ let renderTasks = (todos) => {
 
     if (todos.length === 0) {
         taskList.innerHTML = `<p class="text-slate-400">No todos yet</p>`
-        return
+        return;
     }
 
     todos.forEach(item => {
+
+        // Create Todo <li>
         let li = document.createElement("li")
         li.className = "flex flex-row justify-between bg-gray-900 px-6 py-5 rounded-xl"
 
+        // Todo Texts Div
         let txtDiv = document.createElement("div")
         txtDiv.className = "flex flex-col"
 
+        // Todo Text
         let titleTxt = document.createElement("p")
         titleTxt.className = "text-lg font-medium"
         titleTxt.textContent = item.task
 
+        // Todo Description
         let descrpTxt = document.createElement("p")
         descrpTxt.className = "text-md font-light"
         descrpTxt.textContent = item.description
@@ -167,10 +172,30 @@ let renderTasks = (todos) => {
         txtDiv.appendChild(titleTxt)
         txtDiv.appendChild(descrpTxt)
 
+        // ---- Images ----
+        if (item.images && item.images.length > 0) {
+
+            let imgDiv = document.createElement("div");
+            imgDiv.className = "grid grid-cols-3 gap-2 mt-2";
+
+            if (Array.isArray(item.images)) {
+                item.images.forEach(url => {
+                    let img = document.createElement("img");
+                    img.src = url;
+                    img.className = "w-full h-24 object-cover rounded-lg border border-slate-700";
+                    imgDiv.appendChild(img);
+                });
+            }
+            
+            txtDiv.appendChild(imgDiv);
+
+        }
+
+        // Todo Btn Div
         let btnDiv = document.createElement("div")
         btnDiv.className = "flex flex-row space-x-4"
 
-        // ---- Edit Btn ----
+        // ---- Edit Todo Btn ----
         let editBtn = document.createElement("button")
         editBtn.className = "text-green-500 hover:cursor-pointer hover:text-green-600"
         editBtn.textContent = "Edit"
@@ -180,21 +205,29 @@ let renderTasks = (todos) => {
             taskDescrpInp.value = item.description
             addTodosBtn.textContent = "Save Changes"
             editState.id = item.id
+            uploadedImgUrls = item.images || [];
+            displExistingImg(uploadedImgUrls);
 
         }
 
-        // ---- Delete Btn ----
+        // ---- Delete Todo Btn ----
         let deletBtn = document.createElement("button")
         deletBtn.className = "text-red-600 hover:cursor-pointer hover:text-red-700"
         deletBtn.textContent = "Delete"
         deletBtn.onclick = async () => {
 
             if (!confirm("Delete this task?")) return
+
+            // images delete in storage [Bucket]
+            if (item.images && item.images.length > 0) {
+                await deleteImgsFrmStorg(item.images || []);
+            }
             
             let { error } = await supabase.from("Todo_App")
-                .delete()
-                .eq("id", item.id)
-                .eq("user_id", currentUser)
+            .delete()
+            .eq("id", item.id)
+            .eq("user_id", currentUser)
+
             if (error) {
                 alert(error.message)
                 return
@@ -218,7 +251,7 @@ async function loadTasks() {
 
     let {data , error} = await supabase
     .from("Todo_App")
-    .select("id , task , description")
+    .select("id , task , description , images")
     .eq("user_id", currentUser)
     
     if (error) {
@@ -241,11 +274,18 @@ addTodosBtn.addEventListener("click", async () => {
     let descrp = taskDescrpInp.value.trim()
     if (!title) return
 
+    // --- Upload images pehle ---
+    let imgUrls = await upldImgToStorage();
+
     if (editState.id) {
 
         // ----- Update existing todo -----
         let { error } = await supabase.from("Todo_App")
-        .update({ task: title, description: descrp })
+        .update({
+            task: title,
+            description: descrp,
+            images: imgUrls.length > 0 ? imgUrls : uploadedImgUrls
+        })
         .eq("id", editState.id)
         .eq("user_id", currentUser)
 
@@ -255,32 +295,35 @@ addTodosBtn.addEventListener("click", async () => {
         }
         addTodosBtn.textContent = "Add Todo"
         editState.id = null
+        uploadedImgUrls = [];
 
     }
     else {
 
         // ----- Insert new todo -----
-        let { error } = await supabase.from("Todo_App").insert([{
+        let { error } = await supabase
+        .from("Todo_App")
+        .insert([{
             task: title,
             description: descrp,
-            user_id: currentUser
+            user_id: currentUser,
+            images: imgUrls
         }])
+
         if (error) {
             alert(error.message)
-            return
+            return;
         }
         
     }
 
+    // Clear inputs
     taskTitleInp.value = ""
     taskDescrpInp.value = ""
+    clearImgSelection();
     await loadTasks()
 
 });
-
-// // Page load show tasks
-// loadTasks().
-
 
 // ----------<<< IMAGE UPLOAD FUNCTIONALITY >>>----------
 
@@ -418,16 +461,16 @@ async function upldImgToStorage() {
         .upload(fileName, file)
 
         if (error) {
-            alert("Error Upload failed: " , error.message)
+            alert("Error Upload failed: " + error.message)
             return null;
         }
 
         // Get public URL
-        let { data: { publicUrl } } = supabase.storage
+        let { data } = supabase.storage
         .from("Img-File-Collection")
         .getPublicUrl(fileName)
 
-        return publicUrl;
+        return data.publicUrl;
 
     })
 
@@ -481,18 +524,41 @@ function displExistingImg(imgUrls) {
 
 }
 
-// Remove existing ima  ge from edit
-function removeExistingImage(index) {
+// Delete images from Supabase Storage
+async function deleteImgsFrmStorg(imgUrls) {
+    
+    if (!imgUrls || imgUrls.length === 0) return;
+    
+    // Supabase public URL convert to storage path
+    let paths = imgUrls.map(url => url.split("/Img-File-Collection/")[1]);
+    
+    const { error } = await supabase.storage
+    .from("Img-File-Collection")
+    .remove(paths);
+    
+    if (error) {
+        console.log("Image delete error:", error.message);
+    }
+        
 
+}
+
+// Remove existing image from edit
+async function removeExistingImage(index) {
+
+    // 1. delete from storage
+    let imgUrl = uploadedImgUrls[index];
+    await deleteImgsFrmStorg([imgUrl]);
+
+    // 2. remove from list
     uploadedImgUrls.splice(index, 1);
 
+    // 3. UI update
     if (uploadedImgUrls.length === 0) {
-        imagePreviewContainer.classList.add('hidden');
+        imgPreviewCont.classList.add('hidden');
     }
     else {
         displExistingImg(uploadedImgUrls);
     }
 
 }
-
-
