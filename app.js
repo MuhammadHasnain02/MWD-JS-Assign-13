@@ -260,7 +260,7 @@ async function loadTasks() {
     }
 
     allTodos = data
-    renderTasks(allTodos)
+    renderTasks(data)
 
 }
 
@@ -284,7 +284,7 @@ addTodosBtn.addEventListener("click", async () => {
         .update({
             task: title,
             description: descrp,
-            images: imgUrls.length > 0 ? imgUrls : uploadedImgUrls
+            images: imgUrls
         })
         .eq("id", editState.id)
         .eq("user_id", currentUser)
