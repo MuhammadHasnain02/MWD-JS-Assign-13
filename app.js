@@ -1,6 +1,6 @@
 // Initialize Supabase
-const SUPABASE_URL = "https://pwjvisderoyqbbxifzrw.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3anZpc2Rlcm95cWJieGlmenJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwMzM3MzksImV4cCI6MjA3MTYwOTczOX0.eesSF4krIK1HkNNwjoIsy6bOk2MS73CKCaUV__T4ewA";
+const SUPABASE_URL = "https://lntrfndfszbbhycarfjt.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxudHJmbmRmc3piYmh5Y2FyZmp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjQ1MDMsImV4cCI6MjA3MjEwMDUwM30.qrr-rlmqvBgoa76u5rXl8vMqpJozQkqpGyzXSwNfMzo";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ----------<<< Global Elements >>>----------
@@ -149,7 +149,7 @@ let renderTasks = (todos) => {
         return;
     }
 
-    todos.forEach(item => {
+    todos.forEach(todo => {
 
         // Create Todo <li>
         let li = document.createElement("li")
@@ -162,33 +162,43 @@ let renderTasks = (todos) => {
         // Todo Text
         let titleTxt = document.createElement("p")
         titleTxt.className = "text-lg font-medium"
-        titleTxt.textContent = item.task
+        titleTxt.textContent = todo.task
 
         // Todo Description
         let descrpTxt = document.createElement("p")
         descrpTxt.className = "text-md font-light"
-        descrpTxt.textContent = item.description
+        descrpTxt.textContent = todo.description
 
         txtDiv.appendChild(titleTxt)
         txtDiv.appendChild(descrpTxt)
 
         // ---- Images ----
-        if (item.images && item.images.length > 0) {
+        let imagesArr = [];
 
+        if (todo.images) {
+            if (typeof todo.images === "string") {
+                // agar string save hai (like '["url1","url2"]')
+                imagesArr = JSON.parse(todo.images || "[]");
+            }
+            else if (Array.isArray(todo.images)) {
+                // agar already array hai
+                imagesArr = todo.images;
+            }
+        }
+
+        if (imagesArr.length > 0) {
             let imgDiv = document.createElement("div");
             imgDiv.className = "grid grid-cols-3 gap-2 mt-2";
 
-            if (Array.isArray(item.images)) {
-                item.images.forEach(url => {
-                    let img = document.createElement("img");
-                    img.src = url;
-                    img.className = "w-full h-24 object-cover rounded-lg border border-slate-700";
-                    imgDiv.appendChild(img);
-                });
-            }
-            
-            txtDiv.appendChild(imgDiv);
+            imagesArr.forEach(url => {
+                let img = document.createElement("img");
+                img.src = url;
+                img.className = "w-full h-24 object-cover rounded-lg border border-slate-700";
 
+                imgDiv.appendChild(img);
+            });
+
+            txtDiv.appendChild(imgDiv);
         }
 
         // Todo Btn Div
@@ -201,12 +211,13 @@ let renderTasks = (todos) => {
         editBtn.textContent = "Edit"
         editBtn.onclick = () => {
 
-            taskTitleInp.value = item.task
-            taskDescrpInp.value = item.description
+            taskTitleInp.value = todo.task
+            taskDescrpInp.value = todo.description
             addTodosBtn.textContent = "Save Changes"
-            editState.id = item.id
-            uploadedImgUrls = item.images || [];
-            displExistingImg(uploadedImgUrls);
+            editState.id = todo.id
+
+            uploadedImgUrls = [...imagesArr]
+            displExistingImg(uploadedImgUrls)
 
         }
 
@@ -219,13 +230,13 @@ let renderTasks = (todos) => {
             if (!confirm("Delete this task?")) return
 
             // images delete in storage [Bucket]
-            if (item.images && item.images.length > 0) {
-                await deleteImgsFrmStorg(item.images || []);
+            if (imagesArr.length > 0) {
+                await deleteImgsFrmStorg(imagesArr);
             }
             
             let { error } = await supabase.from("Todo_App")
             .delete()
-            .eq("id", item.id)
+            .eq("id", todo.id)
             .eq("user_id", currentUser)
 
             if (error) {
@@ -457,7 +468,7 @@ async function upldImgToStorage() {
 
         // Upload file
         const { error } = await supabase.storage
-        .from("Img-File-Collection")
+        .from("Todo-Image-Collection")
         .upload(fileName, file)
 
         if (error) {
@@ -467,7 +478,7 @@ async function upldImgToStorage() {
 
         // Get public URL
         let { data } = supabase.storage
-        .from("Img-File-Collection")
+        .from("Todo-Image-Collection")
         .getPublicUrl(fileName)
 
         return data.publicUrl;
@@ -530,10 +541,12 @@ async function deleteImgsFrmStorg(imgUrls) {
     if (!imgUrls || imgUrls.length === 0) return;
     
     // Supabase public URL convert to storage path
-    let paths = imgUrls.map(url => url.split("/Img-File-Collection/")[1]);
+    let paths = imgUrls.map(url => 
+        url.split("/Img-File-Collection/")[1]
+    );
     
     const { error } = await supabase.storage
-    .from("Img-File-Collection")
+    .from("Todo-Image-Collection")
     .remove(paths);
     
     if (error) {
